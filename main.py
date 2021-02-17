@@ -2,7 +2,11 @@ import sys
 
 import serial
 import time
+
+from PyQt5.QtCore import pyqtSlot
+
 from comPortSetup import getComportsList
+from MainApplicationUI import MainApplicationWindow
 
 from PyQt5 import QtWidgets, QtGui, Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTabWidget, QLabel
@@ -12,31 +16,34 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-class MyWindow(QMainWindow):
-    selectLabel: QLabel
-    label: QtWidgets.QLabel
-    connectBtn: QtWidgets.QPushButton
+class ConnectWindow(QMainWindow):
 
     def __init__(self):
+
+        super(ConnectWindow, self).__init__()
+
         self.w = 700
         self.h = 400
 
         self.comPortList = getComportsList()
+        self.arduinoIsConnected = False
 
-        self.ser = serial.Serial(
+        self.ser = ser = serial.Serial(
             baudrate=9600,
             parity=serial.PARITY_ODD,
             stopbits=serial.STOPBITS_TWO,
             bytesize=serial.SEVENBITS
         )
+        self.arduinoName = ""
 
-        super(MyWindow, self).__init__()
         self.setGeometry(300, 200, self.w, self.h)
         self.setFixedSize(self.w, self.h)
-        self.setWindowTitle("Open Source Lab | Optics")
-        self.initUI()
+        self.setWindowTitle("Open Source Lab | Optics - Connect")
 
-    def initUI(self):
+        self.initUi()
+
+    def initUi(self):
+
         self.cb = QtWidgets.QComboBox(self)
         for i in self.comPortList:
             self.cb.addItem("Name : " + str(i["name"]) + " (Manufacturer : " + str(i["manufacturer"]) + ")",
@@ -48,17 +55,19 @@ class MyWindow(QMainWindow):
         self.selectLabel = QtWidgets.QLabel(self)
         self.selectLabel.setText("Select Arduino Com Port")
         self.selectLabel.setFont(QtGui.QFont('Helvetica', 20))
-        self.selectLabel.move(int((self.w / 2) - (self.cb.width() / 2)) + 7,int((self.h / 2) - (self.cb.height() * 1.25)))
+        self.selectLabel.move(int((self.w / 2) - (self.cb.width() / 2)) + 7,
+                              int((self.h / 2) - (self.cb.height() * 1.25)))
         self.selectLabel.adjustSize()
 
         self.connectBtn = QtWidgets.QPushButton(self)
         self.connectBtn.setText("Connect")
         self.connectBtn.setFont(QtGui.QFont('Helvetica', 14))
-        self.connectBtn.setMinimumHeight(self.connectBtn.height()+2)
-        self.connectBtn.move(int((self.w / 2) - (self.connectBtn.width() / 2)), int((self.h / 2) + (self.cb.height() * .5)))
-        self.connectBtn.clicked.connect(self.connectInitiate)
+        self.connectBtn.setMinimumHeight(self.connectBtn.height() + 2)
+        self.connectBtn.move(int((self.w / 2) - (self.connectBtn.width() / 2)),
+                             int((self.h / 2) + (self.cb.height() * .5)))
+        self.connectBtn.clicked.connect(self.connectAndInitiate)
 
-    def connectInitiate(self):
+    def connectAndInitiate(self):
         self.connectBtn.setText("Please Wait...")
         self.connectBtn.adjustSize()
         try:
@@ -70,8 +79,9 @@ class MyWindow(QMainWindow):
                 bytesize=serial.SEVENBITS
             )
             self.connectBtn.setText("Connected!")
-
-            return
+            self.connectBtn.move(int((self.w / 2) - (self.connectBtn.width() / 2)),
+                                 int((self.h / 2) + (self.cb.height() * .5)))
+            self.arduinoIsConnected = True
         except:
             self.connectBtn.setText("Error, Please Choose Again")
             self.connectBtn.adjustSize()
@@ -79,11 +89,22 @@ class MyWindow(QMainWindow):
             self.connectBtn.move(int((self.w / 2) - (self.connectBtn.width() / 2)),
                                  int((self.h / 2) + (self.cb.height() * .5)))
             return
+        if self.arduinoIsConnected is True:
+            self.arduinoName = self.comPortList[self.cb.currentIndex()]['device']
+            self.initMainApp(self.arduinoName)
+
+    @pyqtSlot()
+    def initMainApp(self, value):
+        self.mainWindow = MainApplicationWindow(value)
+        self.mainWindow.show()
+        self.close()
 
 
 def window():
     app = QApplication(sys.argv)
-    win = MyWindow()
+    win = ConnectWindow()
+    app.setStyle("fusion")
+    # win = MainApplicationWindow("")
 
     win.show()
     sys.exit(app.exec_())
