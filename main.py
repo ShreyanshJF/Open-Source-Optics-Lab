@@ -47,7 +47,7 @@ class ConnectWindow(QMainWindow):
         self.cb = QtWidgets.QComboBox(self)
         for i in self.comPortList:
             self.cb.addItem("Name : " + str(i["name"]) + " (Manufacturer : " + str(i["manufacturer"]) + ")",
-                            i["device"])  # +" Description : "+str(i["description"]))
+                            i["device"])
         self.cb.adjustSize()
         self.cb.setMinimumWidth(self.cb.width() + 15)
         self.cb.move(int((self.w / 2) - (self.cb.width() / 2)), int((self.h / 2) - (self.cb.height() / 2)))
@@ -64,7 +64,7 @@ class ConnectWindow(QMainWindow):
         self.connectBtn.setFont(QtGui.QFont('Helvetica', 14))
         self.connectBtn.setMinimumHeight(self.connectBtn.height() + 2)
         self.connectBtn.move(int((self.w / 2) - (self.connectBtn.width() / 2)),
-                             int((self.h / 2) + (self.cb.height() * .5)))
+                             int((self.h / 2) + (self.cb.height() * .5)) + 10)
         self.connectBtn.clicked.connect(self.connectAndInitiate)
 
     def connectAndInitiate(self):
@@ -78,16 +78,17 @@ class ConnectWindow(QMainWindow):
                 stopbits=serial.STOPBITS_TWO,
                 bytesize=serial.SEVENBITS
             )
+            self.ser.close()
             self.connectBtn.setText("Connected!")
             self.connectBtn.move(int((self.w / 2) - (self.connectBtn.width() / 2)),
-                                 int((self.h / 2) + (self.cb.height() * .5)))
+                                 int((self.h / 2) + (self.cb.height() * .5)) + 10)
             self.arduinoIsConnected = True
         except:
             self.connectBtn.setText("Error, Please Choose Again")
             self.connectBtn.adjustSize()
             self.cb.model().item(self.cb.currentIndex()).setEnabled(False)
             self.connectBtn.move(int((self.w / 2) - (self.connectBtn.width() / 2)),
-                                 int((self.h / 2) + (self.cb.height() * .5)))
+                                 int((self.h / 2) + (self.cb.height() * .5)) + 10)
             return
         if self.arduinoIsConnected is True:
             self.arduinoName = self.comPortList[self.cb.currentIndex()]['device']
@@ -104,6 +105,8 @@ def window():
     app = QApplication(sys.argv)
     win = ConnectWindow()
     app.setStyle("fusion")
+
+    # For Testing
     # win = MainApplicationWindow("")
 
     win.show()
