@@ -1,25 +1,73 @@
+import re
+import sys
+import time
+import traceback
+
 import numpy as np
-import serial
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QMainWindow, QLabel
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
+
 from MatplotlibIntegrate import Canvas, CanvasNav
 
 
-class MainApplicationWindow(QMainWindow):
-    slideLableRight: QLabel
-    slideLableLeft: QLabel
+class WorkerSignals(QObject):
+    finished = pyqtSignal()
+    error = pyqtSignal(tuple)
+    result = pyqtSignal(str)
+    progress = pyqtSignal(list)
 
-    def __init__(self, comportName):
+
+class Worker(QRunnable):
+    def __init__(self, fn, *args, **kwargs):
+        super(Worker, self).__init__()
+
+        # Store constructor arguments (re-used for processing)
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = WorkerSignals()
+
+        # Add the callback to our kwargs
+        self.kwargs['progress_callback'] = self.signals.progress
+        self.kwargs['error_callback'] = self.signals.error
+        self.kwargs['result_callback'] = self.signals.result
+
+    @pyqtSlot()
+    def run(self):
+        self.fn(*self.args, **self.kwargs)
+        self.signals.finished.emit()
+
+
+class MainApplicationWindow(QMainWindow):
+
+    def __init__(self, comportName, ser):
+        self.collectedData = []
+        self.currentDegMove = 0
+        self.finishedStepsOf5 = 0
         self.w = 700
         self.h = 420
 
         self.comportName = comportName
-        self.ser = ""
+
+        self.ser = ser
+        self.ser.flush()
+        self.ser.flushInput()
+        self.ser.flushOutput()
+        time.sleep(1)
+
+        self.stepsOf5 = 0
 
         super(MainApplicationWindow, self).__init__()
         # self.setGeometry(300, 200, self.w, self.h)
         self.setFixedSize(self.w, self.h)
         self.setWindowTitle("Open Source Lab | Optics")
+
+        self.threadPool = QThreadPool()
+
+        self.xData = []
+        self.yData = []
+        self.dataPlotRef = None
         self.initUI()
 
     def initUI(self):
@@ -29,6 +77,9 @@ class MainApplicationWindow(QMainWindow):
         # self.plotCanvas.move(15, 15)
         self.plotCanvas.setStyleSheet("background-color:transparent;")
         self.plotCanvas.setStyleSheet("background-color: rgba(0,0,0,0);")
+        self.dataPlotRef = self.plotCanvas.plt.plot(self.xData, self.yData)
+        self.dataPlotRef = self.dataPlotRef[0]
+        self.plotCanvas.plt.tight_layout()
 
         self.canvasNav = CanvasNav(self.plotCanvas, self)
         layout = QtWidgets.QVBoxLayout()
@@ -80,13 +131,13 @@ class MainApplicationWindow(QMainWindow):
 
         sl.valueChanged.connect(self.updateLableValue)
 
-        self.slideLableLeft = QtWidgets.QLabel(self.motorControlPanel)
-        self.slideLableLeft.setText("0°")
-        self.slideLableLeft.move(int(sl.x()) + 3, sl.y() - 20)
+        self.slideLabelLeft = QtWidgets.QLabel(self.motorControlPanel)
+        self.slideLabelLeft.setText("0°")
+        self.slideLabelLeft.move(int(sl.x()) + 3, sl.y() - 20)
 
-        self.slideLableRight = QtWidgets.QLabel(self.motorControlPanel)
-        self.slideLableRight.setText("180°")
-        self.slideLableRight.move(int(sl.x() + sl.width() - self.slideLableRight.width() / 5), sl.y() - 20)
+        self.slideLabelRight = QtWidgets.QLabel(self.motorControlPanel)
+        self.slideLabelRight.setText("180°")
+        self.slideLabelRight.move(int(sl.x() + sl.width() - self.slideLabelRight.width() / 5), sl.y() - 20)
 
         btnDegList = [45, 90, 135, 180]
         self.btnList = [2, 3, 4, 5]
@@ -174,38 +225,91 @@ class MainApplicationWindow(QMainWindow):
         self.slideValuelabel.move(int((self.motorControlPanel.width() / 2) - (self.slideValuelabel.width() / 4) - 10),
                                   self.slideValuelabel.y())
 
+    def disableMotorControls(self, boolVal):
+        if boolVal == True:
+            turnBtn = self.rotateSend
+            turnBtn.setStyleSheet("background-color: rgb(255, 255, 140)")
+            turnBtn.setText("Collecting data...")
+            turnBtn.adjustSize()
+            turnBtn.move(int((self.motorControlPanel.width() / 2) - (turnBtn.width() / 2) + 5),
+                         int(self.rotateSlider.y() + (self.slideValuelabel.height() * 3.8) - 7))
+
+            self.motorControlPanel.setDisabled(boolVal)
+            for i in self.btnList:
+                i.setDisabled(boolVal)
+        else:
+            turnBtn = self.rotateSend
+            turnBtn.setStyleSheet("background-color: rgb(140, 255, 140)")
+            turnBtn.setText("Turn Motor + Plot Data")
+            turnBtn.adjustSize()
+            turnBtn.move(int((self.motorControlPanel.width() / 2) - (turnBtn.width() / 2) + 5),
+                         int(self.rotateSlider.y() + (self.slideValuelabel.height() * 3.8) - 7))
+
+            self.motorControlPanel.setDisabled(boolVal)
+            for i in self.btnList:
+                i.setDisabled(boolVal)
+
+    def arduinoRunner(self, deg, progress_callback, error_callback, result_callback):
+
+        totalSteps = int(deg * 5.625)
+        self.stepsOf5 = np.round(totalSteps / 5)
+        self.finishedStepsOf5 = 0
+        steps = 5
+
+        print(self.stepsOf5)
+        self.ser.write((str(steps) + "\x04").encode("utf-8"))
+
+        while True:
+
+            inputFromArduino = self.ser.readline()
+            if inputFromArduino:
+                inputFromArduino = inputFromArduino.decode("utf-8")
+                inputFromArduino = inputFromArduino.strip()
+            if "potentio" in inputFromArduino:  # to print potentiometer value
+                res = int(re.search(r'\d+$', inputFromArduino).group())
+                entry = [(self.finishedStepsOf5 + 1)*5/5.625, res]
+                progress_callback.emit(entry)
+            if inputFromArduino == 'DONE':
+                self.stepsOf5 = self.stepsOf5 - 1
+                self.finishedStepsOf5 = self.finishedStepsOf5 + 1
+                if self.stepsOf5 == 0:
+                    break
+                self.ser.write((str(steps) + "\x04").encode("utf-8"))
+
+            # result_callback.emit('5x Steps Left: {} | Res: {} '.format(self.stepsOf5, re.search(r'\d+$', inputFromArduino)))
+
+    def updateGraph(self, newEntry):
+        self.collectedData.append(newEntry)
+        data = np.transpose(self.collectedData)
+        self.plotCanvas.plt.cla()
+        if data.any():
+            self.plotCanvas.plt.scatter(data[0], data[1], color='C2')
+            self.plotCanvas.plt.xlim(0,self.currentDegMove+5,min)
+        self.plotCanvas.draw()
+        print(np.transpose(data))
+
+    def print_output(self, p):
+        print(p)
+
     def startMotorRotation(self, deg):
         self.roundTo5()
 
-        turnBtn = self.rotateSend
-        turnBtn.setStyleSheet("background-color: 255, 100, 255")
-        turnBtn.setText("Collecting data...")
-        turnBtn.adjustSize()
-        turnBtn.move(int((self.motorControlPanel.width() / 2) - (turnBtn.width() / 2) + 5),
-                     int(self.rotateSlider.y() + (self.slideValuelabel.height() * 3.8) - 7))
+        self.disableMotorControls(True)
 
-        self.motorControlPanel.setDisabled(True)
-        for i in self.btnList:
-            i.setDisabled(True)
+        self.collectedData = []
 
-        collectedData = []  # Store the potentio data in this Array
+        self.currentDegMove = deg
 
-        totalSteps = int(deg * 5.625)
-        stepsOf5 = np.round(totalSteps / 5)
-        lastSpteps = totalSteps - (stepsOf5 * 5)
-        potentioData = []
+        print('Starting Worker')
 
-        ser = serial.Serial(  # Serial Open for While Loop
-            port=self.comportName,
-            baudrate=9600,
-            parity=serial.PARITY_ODD,
-            stopbits=serial.STOPBITS_TWO,
-            bytesize=serial.SEVENBITS
-        )
+        worker = Worker(self.arduinoRunner, deg)  # Any other args, kwargs are passed to the run function
+        worker.signals.result.connect(self.print_output)
+        worker.signals.error.connect(self.print_output)
+        worker.signals.finished.connect(lambda: self.disableMotorControls(False))
+        worker.signals.finished.connect(lambda: print(self.collectedData))
+        worker.signals.progress.connect(self.updateGraph)
 
-        while stepsOf5 > 0:
-            # Space For Data Collection code
+        self.threadPool.start(worker)
+        print(self.collectedData)
 
-            print(collectedData[-1])
-
-        ser.close()  # Serial Close after while loop
+        # self.ser.close()  # Serial Close after while loop

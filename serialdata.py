@@ -43,15 +43,15 @@ try:
 
     while True:
 
-        inputfromarduino = ser.readline()
-        if inputfromarduino:
-            inputfromarduino = inputfromarduino.decode("utf-8")
-            inputfromarduino = inputfromarduino.strip()
+        inputFromArduino = ser.readline()
+        if inputFromArduino:
+            inputFromArduino = inputFromArduino.decode("utf-8")
+            inputFromArduino = inputFromArduino.strip()
 
-        if "potentio" in inputfromarduino:  # to print potentiometer value
-            print(inputfromarduino)
+        if "potentio" in inputFromArduino:  # to print potentiometer value
+            print(inputFromArduino)
 
-        if (inputfromarduino == 'DONE'):
+        if (inputFromArduino == 'DONE'):
             print("Completed " + str(steps) + " steps")
             userinput = input("enter number of steps to move (no value = 5 steps): ")
             print("Please wait...")

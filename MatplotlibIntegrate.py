@@ -1,36 +1,27 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigCanvas
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as CanvasNavDefault
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as CanvasNavDefault
+from matplotlib.figure import Figure
 
 
 def cos2Fnc(val, A, B, C, D):
     return A * (np.cos((B * val) + C) ** 2) + D
 
+
 class CanvasNav(CanvasNavDefault):
-    # only display the buttons we need
+
     print(CanvasNavDefault.toolitems)
     toolitems = [t for t in CanvasNavDefault.toolitems if
                  t[0] in ('Home', 'Pan', 'Zoom', 'Save')]
+
 
 class Canvas(FigCanvas):
 
     def __init__(self, parent):
         fig = plt.figure(figsize=(4.95, 4))
         super(Canvas, self).__init__(fig)
-        self.setParent(parent)
+
+        self.plt = plt
         fig.patch.set_facecolor("None")
-        plt.style.use('bmh')
-        # t = np.arange(0.0, 2.0, 0.01)
-        # s = 1 + cos2Fnc(t, 1, 1, 0, 0)
-
-        # plt.plot(t, s, label="Name")
-        try:
-            plt.legend()
-        except:
-            pass
-        fig.tight_layout()
-
-        # plt.xlabel('time (s)')
-        # plt.ylabel('voltage (mV)')
-        plt.xlim(0,180)
+        self.plt.style.use('bmh')

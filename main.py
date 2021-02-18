@@ -83,7 +83,11 @@ class ConnectWindow(QMainWindow):
                 stopbits=serial.STOPBITS_TWO,
                 bytesize=serial.SEVENBITS
             )
-            self.ser.close()
+            self.ser.flush()
+            self.ser.flushInput()
+            self.ser.flushOutput()
+            time.sleep(1)
+            # self.ser.close()
             self.connectBtn.setText("Connected!")
             self.connectBtn.move(int((self.w / 2) - (self.connectBtn.width() / 2)),
                                  int((self.h / 2) + (self.cb.height() * .5)) + 10)
@@ -97,11 +101,11 @@ class ConnectWindow(QMainWindow):
             return
         if self.arduinoIsConnected is True:
             self.arduinoName = self.comPortList[self.cb.currentIndex()]['device']
-            self.initMainApp(self.arduinoName)
+            self.initMainApp(self.arduinoName, self.ser)
 
     @pyqtSlot()
-    def initMainApp(self, value):
-        self.mainWindow = MainApplicationWindow(value)
+    def initMainApp(self, value, ser):
+        self.mainWindow = MainApplicationWindow(value, ser)
         self.mainWindow.show()
         self.close()
 
