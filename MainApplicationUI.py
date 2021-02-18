@@ -3,7 +3,7 @@ import serial
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMainWindow, QLabel
 from MatplotlibIntegrate import Canvas, CanvasNav
-
+import time
 
 class MainApplicationWindow(QMainWindow):
     slideLableRight: QLabel
@@ -202,10 +202,40 @@ class MainApplicationWindow(QMainWindow):
             stopbits=serial.STOPBITS_TWO,
             bytesize=serial.SEVENBITS
         )
+        ser.flush()
+        ser.flushInput()
+        ser.flushOutput()
+        time.sleep(1)
+        userinput=""
+        #userinput = input("enter number of steps to move (no value = 5 steps): ")
+        #print("Please wait...")
 
+        if userinput != "":
+            steps = userinput
+
+        else:
+            steps = 5
+
+        print(stepsOf5)
+        ser.write((str(steps) + "\x04").encode("utf-8"))
         while stepsOf5 > 0:
+            
             # Space For Data Collection code
+            inputfromarduino=ser.readline()
+            if inputfromarduino:
+                inputfromarduino=inputfromarduino.decode("utf-8")
+                inputfromarduino=inputfromarduino.strip()
+            #print(inputfromarduino)
+            if "potentio" in inputfromarduino: #to print potentiometer value
+                print(inputfromarduino)
+                collectedData.append(int(inputfromarduino.split(" ")[-1]))
+            if (inputfromarduino=='DONE' ):
+                print("Done")
+                stepsOf5=stepsOf5-1
+                if stepsOf5>0:
+                    ser.write((str(steps) + "\x04").encode("utf-8"))
+                time.sleep(1)
 
-            print(collectedData[-1])
+        print(collectedData)
 
         ser.close()  # Serial Close after while loop
