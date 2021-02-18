@@ -1,16 +1,22 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigCanvas
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as CanvasNavDefault
 
 
 def cos2Fnc(val, A, B, C, D):
     return A * (np.cos((B * val) + C) ** 2) + D
 
+class CanvasNav(CanvasNavDefault):
+    # only display the buttons we need
+    print(CanvasNavDefault.toolitems)
+    toolitems = [t for t in CanvasNavDefault.toolitems if
+                 t[0] in ('Home', 'Pan', 'Zoom', 'Save')]
 
 class Canvas(FigCanvas):
 
     def __init__(self, parent):
-        fig = plt.figure(figsize=(4.8, 3.9))
+        fig = plt.figure(figsize=(4.95, 4))
         super(Canvas, self).__init__(fig)
         self.setParent(parent)
         fig.patch.set_facecolor("None")

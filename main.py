@@ -7,6 +7,7 @@ from PyQt5.QtCore import pyqtSlot
 
 from comPortSetup import getComportsList
 from MainApplicationUI import MainApplicationWindow
+from ArduinoCodeCopyBtn import CopyCodeBtn
 
 from PyQt5 import QtWidgets, QtGui, Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTabWidget, QLabel
@@ -66,6 +67,10 @@ class ConnectWindow(QMainWindow):
         self.connectBtn.move(int((self.w / 2) - (self.connectBtn.width() / 2)),
                              int((self.h / 2) + (self.cb.height() * .5)) + 10)
         self.connectBtn.clicked.connect(self.connectAndInitiate)
+
+        self.copyCodeBtn = CopyCodeBtn(self)
+        self.copyCodeBtn.show()
+
 
     def connectAndInitiate(self):
         self.connectBtn.setText("Please Wait...")
