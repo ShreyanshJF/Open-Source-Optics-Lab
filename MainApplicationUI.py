@@ -1,14 +1,13 @@
 import re
-import sys
 import time
-import traceback
 
 import numpy as np
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
+from scipy.optimize import curve_fit
 
-from MatplotlibIntegrate import Canvas, CanvasNav
+from MatplotlibIntegrate import Canvas, CanvasNav, cos2Fnc
 
 
 class WorkerSignals(QObject):
@@ -43,10 +42,14 @@ class MainApplicationWindow(QMainWindow):
 
     def __init__(self, comportName, ser):
         self.collectedData = []
+        self.fitParams = any
+        self.refCurveOn = False
+        self.fitCurveOn = False
+        self.currentRefCurve = None
         self.currentDegMove = 0
         self.finishedStepsOf5 = 0
         self.w = 700
-        self.h = 420
+        self.h = 400
 
         self.comportName = comportName
 
@@ -59,7 +62,6 @@ class MainApplicationWindow(QMainWindow):
         self.stepsOf5 = 0
 
         super(MainApplicationWindow, self).__init__()
-        # self.setGeometry(300, 200, self.w, self.h)
         self.setFixedSize(self.w, self.h)
         self.setWindowTitle("Open Source Lab | Optics")
 
@@ -73,8 +75,6 @@ class MainApplicationWindow(QMainWindow):
     def initUI(self):
 
         self.plotCanvas = Canvas(self)
-        # self.plotCanvas.resize(480, 370)
-        # self.plotCanvas.move(15, 15)
         self.plotCanvas.setStyleSheet("background-color:transparent;")
         self.plotCanvas.setStyleSheet("background-color: rgba(0,0,0,0);")
         self.dataPlotRef = self.plotCanvas.plt.plot(self.xData, self.yData)
@@ -93,21 +93,20 @@ class MainApplicationWindow(QMainWindow):
 
         self.motorControlPanel = QtWidgets.QGroupBox(self)
         self.motorControlPanel.resize(180, 180)
-        self.motorControlPanel.move(self.plotCanvas.x() + self.plotCanvas.width() + 5, 15)
+        self.motorControlPanel.move(self.plotCanvas.x() + self.plotCanvas.width() + 15, 25)
         self.motorControlPanel.setTitle("Motor Controls")
         self.motorControlUI()
 
         self.dataPanel = QtWidgets.QGroupBox(self)
-        self.dataPanel.resize(180, 100)
-        self.dataPanel.move(self.plotCanvas.x() + self.plotCanvas.width() + 5, 20 + self.motorControlPanel.height())
+        self.dataPanel.resize(180, 70)
+        self.dataPanel.move(self.plotCanvas.x() + self.plotCanvas.width() + 15, self.motorControlPanel.y() + self.motorControlPanel.height() + 15)
         self.dataPanel.setTitle("Data")
         self.dataPanel.setDisabled(True)
         self.dataUI()
 
         self.referenceCurvePanel = QtWidgets.QGroupBox(self)
         self.referenceCurvePanel.resize(180, 70)
-        self.referenceCurvePanel.move(self.plotCanvas.x() + self.plotCanvas.width() + 5,
-                                      25 + self.motorControlPanel.height() + self.dataPanel.height())
+        self.referenceCurvePanel.move(self.plotCanvas.x() + self.plotCanvas.width() + 15, self.dataPanel.y() + self.dataPanel.height() + 15)
         self.referenceCurvePanel.setTitle("Refrence Curve")
         self.referenceCurvePanel.setDisabled(True)
         self.referenceUI()
@@ -129,7 +128,7 @@ class MainApplicationWindow(QMainWindow):
         slValLab.move(int((self.motorControlPanel.width() / 2) - (self.slideValuelabel.width() / 4) - 8),
                       int(self.rotateSlider.y() + (self.rotateSlider.height() / 1.5)))
 
-        sl.valueChanged.connect(self.updateLableValue)
+        sl.valueChanged.connect(self.updateLabelValue)
 
         self.slideLabelLeft = QtWidgets.QLabel(self.motorControlPanel)
         self.slideLabelLeft.setText("0°")
@@ -147,7 +146,7 @@ class MainApplicationWindow(QMainWindow):
             self.btnList[i].setText(str(btnDegList[i]) + "°")
             self.btnList[i].setFixedWidth(35)
             self.btnList[i].move(int(self.motorControlPanel.x() + (i * (7 + self.btnList[i].width()))) + 10,
-                                 int(self.rotateSlider.y() - 45))
+                                 int(self.rotateSlider.y() - 35))
 
         self.btnList[0].clicked.connect(lambda: self.updateValueWithButton(int(45)))
         self.btnList[1].clicked.connect(lambda: self.updateValueWithButton(int(90)))
@@ -161,18 +160,7 @@ class MainApplicationWindow(QMainWindow):
         rtBtn.move(int((panW / 2) - (rtBtn.width() / 2) + 5), int(sl.y() + (slValLab.height() * 2) - 7))
         rtBtn.clicked.connect(lambda: self.startMotorRotation(self.rotateSlider.value()))
 
-        self.updateLableValue()
-
-    def updateLableValue(self):
-        self.slideValuelabel.setText('Degres : ' + str(self.rotateSlider.value()) + '°')
-        self.slideValuelabel.adjustSize()
-        self.slideValuelabel.move(int((self.motorControlPanel.width() / 2) - (self.slideValuelabel.width() / 4) - 10),
-                                  self.slideValuelabel.y())
-
-    def roundTo5(self):
-        newValue = np.around(self.rotateSlider.value() / 5, decimals=0) * 5
-        self.rotateSlider.setValue(newValue)
-        self.updateLableValue()
+        self.updateLabelValue()
 
     def dataUI(self):
 
@@ -181,24 +169,14 @@ class MainApplicationWindow(QMainWindow):
         self.fitCurveBtn = QtWidgets.QPushButton(parent)
         self.fitCurveBtn.setText("Fit Cos²")
         self.fitCurveBtn.adjustSize()
-        self.fitCurveBtn.move(12, int(parent.height() / 3 - 3))
-
-        self.clearGraphBtn = QtWidgets.QPushButton(parent)
-        self.clearGraphBtn.setText("Reset All")
-        self.clearGraphBtn.adjustSize()
-        self.clearGraphBtn.move(12, int(parent.height() - self.clearGraphBtn.height() - 10))
+        self.fitCurveBtn.move(12, int(parent.height() / 2 - 3))
+        self.fitCurveBtn.clicked.connect(self.drawFitCurve)
 
         self.exportDataBtn = QtWidgets.QPushButton(parent)
         self.exportDataBtn.setText("Export")
         self.exportDataBtn.adjustSize()
         self.exportDataBtn.setFixedWidth(self.exportDataBtn.width() - 15)
-        self.exportDataBtn.move(parent.width() - 12 - self.exportDataBtn.width(),
-                                int(parent.height() - self.exportDataBtn.height() - 10))
-
-        self.fitCurveBtn = QtWidgets.QCheckBox(parent)
-        self.fitCurveBtn.setText("Hide Fit")
-        self.fitCurveBtn.adjustSize()
-        self.fitCurveBtn.move(parent.width() - 14 - self.exportDataBtn.width(), int(parent.height() / 3 - 3))
+        self.exportDataBtn.move(parent.width() - 12 - self.exportDataBtn.width(), int(parent.height() / 2 - 3))
 
     def referenceUI(self):
 
@@ -212,10 +190,17 @@ class MainApplicationWindow(QMainWindow):
         self.selectCurve.move(12, int(parent.height() / 2 - 3))
         self.selectCurve.setCurrentIndex(0)
 
-        self.plotBtn = QtWidgets.QPushButton(parent)
-        self.plotBtn.setText("Plot Curve")
-        self.plotBtn.adjustSize()
-        self.plotBtn.move(parent.width() - 12 - self.plotBtn.width(), int(parent.height() / 2 - 3))
+        self.plotRefCurveBtn = QtWidgets.QPushButton(parent)
+        self.plotRefCurveBtn.setText("Plot Curve")
+        self.plotRefCurveBtn.adjustSize()
+        self.plotRefCurveBtn.move(parent.width() - 12 - self.plotRefCurveBtn.width(), int(parent.height() / 2 - 3))
+        self.plotRefCurveBtn.clicked.connect(self.drawRefCurve)
+
+    def updateLabelValue(self):
+        self.slideValuelabel.setText('Degres : ' + str(self.rotateSlider.value()) + '°')
+        self.slideValuelabel.adjustSize()
+        self.slideValuelabel.move(int((self.motorControlPanel.width() / 2) - (self.slideValuelabel.width() / 4) - 10),
+                                  self.slideValuelabel.y())
 
     def updateValueWithButton(self, value):
         self.rotateSlider.setValue(int(value))
@@ -267,8 +252,9 @@ class MainApplicationWindow(QMainWindow):
                 inputFromArduino = inputFromArduino.strip()
             if "potentio" in inputFromArduino:  # to print potentiometer value
                 res = int(re.search(r'\d+$', inputFromArduino).group())
-                entry = [(self.finishedStepsOf5 + 1)*5/5.625, res]
+                entry = [(self.finishedStepsOf5 + 1) * 5 / 5.625, res]
                 progress_callback.emit(entry)
+                result_callback.emit(str(entry[1]))
             if inputFromArduino == 'DONE':
                 self.stepsOf5 = self.stepsOf5 - 1
                 self.finishedStepsOf5 = self.finishedStepsOf5 + 1
@@ -278,25 +264,95 @@ class MainApplicationWindow(QMainWindow):
 
             # result_callback.emit('5x Steps Left: {} | Res: {} '.format(self.stepsOf5, re.search(r'\d+$', inputFromArduino)))
 
-    def updateGraph(self, newEntry):
+    def updateCollectedDataGraph(self, newEntry):
         self.collectedData.append(newEntry)
         data = np.transpose(self.collectedData)
-        self.plotCanvas.plt.cla()
+        plt = self.plotCanvas.plt
+        plt.cla()
+        self.fitCurveOn = False
+        self.refCurveOn = False
         if data.any():
-            self.plotCanvas.plt.scatter(data[0], data[1], color='C2')
-            self.plotCanvas.plt.xlim(0,self.currentDegMove+5,min)
+            plt.scatter(data[0], data[1] / np.amax(data[1]), color='C2', label="Collected Data")
+            plt.xlim(0, self.currentDegMove + 1 + int(self.currentDegMove * .1), min)
+            plt.ylim(0, 1.1, min)
+            plt.xlabel("Degrees of Rotation")
+            plt.ylabel("Intensity")
+            plt.legend()
         self.plotCanvas.draw()
-        print(np.transpose(data))
+        self.plotCanvas.plt.draw()
+
+    def drawFitCurve(self):
+        data = np.transpose(self.collectedData)
+        plt = self.plotCanvas.plt
+        if data.any() and self.fitCurveOn == False:
+            self.fitParams, _ = curve_fit(cos2Fnc, data[0], data[1], p0=[1, 1, 0, 0])
+            print(self.fitParams.size)
+            x = np.arange(0, 180, 0.1)
+            plt.plot(x, cos2Fnc(x, *self.fitParams),
+                     label="{0:.2f} ∙ Cos²( {1:.2f}$\tX$ + {2:.2f} ) + {3:.2f}".format(*self.fitParams))
+            plt.legend()
+            plt.draw()
+            self.fitCurveOn = True
+            self.referenceCurvePanel.setDisabled(False)
+
+    def drawRefCurve(self):
+        if type(self.fitParams) == np.ndarray and self.refCurveOn == False:
+            plt = self.plotCanvas.plt
+            x = np.arange(0, 180, 0.1)
+            if self.selectCurve.currentData() == 'cos':
+                phase = 0
+                self.currentRefCurve = 'cos'
+            else:
+                phase = -np.pi / 4
+                self.currentRefCurve = 'sin'
+            plt.plot(x, cos2Fnc(x, self.fitParams[0], self.fitParams[1], phase, self.fitParams[3]),
+                     label="Reference Curve")
+            plt.legend(fontsize=10)
+            plt.draw()
+            self.refCurveOn = True
+        elif self.refCurveOn == True and self.selectCurve.currentData() != self.currentRefCurve:
+            self.fitCurveOn = False
+            plt = self.plotCanvas.plt
+            data = np.transpose(self.collectedData)
+            x = np.arange(0, 180, 0.1)
+
+            plt.cla()
+
+            plt.scatter(data[0], data[1] / np.amax(data[1]), color='C2', label="Collected Data")
+            plt.xlim(0, self.currentDegMove + 1 + int(self.currentDegMove * .1), min)
+            plt.ylim(0, 1.1, min)
+            plt.xlabel("Degrees of Rotation")
+            plt.ylabel("Intensity")
+
+            self.drawFitCurve()
+
+            if self.selectCurve.currentData() == 'cos':
+                phase = 0
+                self.currentRefCurve = 'cos'
+            else:
+                phase = -np.pi / 4
+                self.currentRefCurve = 'sin'
+            plt.plot(x, cos2Fnc(x, self.fitParams[0], self.fitParams[1], phase, self.fitParams[3]),
+                     label="Reference Curve")
+            plt.legend(fontsize=10)
+            plt.draw()
+            self.refCurveOn = True
 
     def print_output(self, p):
         print(p)
 
+    def normalizeData(self):
+        data = np.transpose(self.collectedData)
+        data[1] = data[1] / np.amax(data[1])
+        self.collectedData = np.transpose(data).tolist()
+
     def startMotorRotation(self, deg):
-        self.roundTo5()
 
         self.disableMotorControls(True)
+        self.dataPanel.setDisabled(True)
+        self.referenceCurvePanel.setDisabled(True)
 
-        self.collectedData = []
+        self.collectedData.clear()
 
         self.currentDegMove = deg
 
@@ -306,10 +362,9 @@ class MainApplicationWindow(QMainWindow):
         worker.signals.result.connect(self.print_output)
         worker.signals.error.connect(self.print_output)
         worker.signals.finished.connect(lambda: self.disableMotorControls(False))
-        worker.signals.finished.connect(lambda: print(self.collectedData))
-        worker.signals.progress.connect(self.updateGraph)
+        worker.signals.finished.connect(self.normalizeData)
+        worker.signals.finished.connect(lambda: self.dataPanel.setDisabled(False))
+        worker.signals.progress.connect(self.updateCollectedDataGraph)
 
         self.threadPool.start(worker)
-        print(self.collectedData)
-
         # self.ser.close()  # Serial Close after while loop
