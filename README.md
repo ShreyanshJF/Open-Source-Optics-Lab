@@ -22,6 +22,7 @@ py main.py
 python main.py
 ```
 
-If you have any issues check if you have the python 3.9+ and that you are running it with python3
-on Mac when you install python3 alongside the native version of python on your machine, 
+If you have any issues check if you have the python 3.9+ and that you are running it with python3.
+
+On macOS when you install python3 alongside the native version of python on your machine, 
 you have to call `python3 main.py` instead of `python main.py`
