@@ -12,6 +12,7 @@ cd [LOCATION OF DOWNLOADED FOLDER]
 pip install -r requirements.txt
 ```
 Then, while in the same folder, run the `main.py` file with python
+
 **Windows**
 ```
 py main.py
