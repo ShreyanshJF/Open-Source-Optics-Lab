@@ -1,11 +1,3 @@
-// 
-// Setup: 
-// Potentiometer input at Analog Pin 2 (A2)
-// Stepper Motor Pins: 8, 9, 10, 11
-// 
-// 
-// 
-
  #include <Stepper.h>
 
  #include <stdio.h>
@@ -123,7 +115,7 @@
 //       Serial.print("arr value: ");
 //       Serial.println(arr[i]);
 //     }
-     delay(1000);
+     //delay(100);
    }
 
  }
