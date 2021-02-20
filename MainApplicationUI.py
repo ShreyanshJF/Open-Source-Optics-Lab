@@ -38,11 +38,15 @@ class Worker(QRunnable):
         self.signals.finished.emit()
 
 
+def print_output(p):
+    print(p)
+
+
 class MainApplicationWindow(QMainWindow):
 
     def __init__(self, comportName, ser):
         self.collectedData = []
-        self.fitParams = any
+        self.fitParams = np.array([0, 0, 0, 0, 0])
         self.refCurveOn = False
         self.fitCurveOn = False
         self.currentRefCurve = None
@@ -99,14 +103,16 @@ class MainApplicationWindow(QMainWindow):
 
         self.dataPanel = QtWidgets.QGroupBox(self)
         self.dataPanel.resize(180, 70)
-        self.dataPanel.move(self.plotCanvas.x() + self.plotCanvas.width() + 15, self.motorControlPanel.y() + self.motorControlPanel.height() + 15)
+        self.dataPanel.move(self.plotCanvas.x() + self.plotCanvas.width() + 15,
+                            self.motorControlPanel.y() + self.motorControlPanel.height() + 15)
         self.dataPanel.setTitle("Data")
         self.dataPanel.setDisabled(True)
         self.dataUI()
 
         self.referenceCurvePanel = QtWidgets.QGroupBox(self)
         self.referenceCurvePanel.resize(180, 70)
-        self.referenceCurvePanel.move(self.plotCanvas.x() + self.plotCanvas.width() + 15, self.dataPanel.y() + self.dataPanel.height() + 15)
+        self.referenceCurvePanel.move(self.plotCanvas.x() + self.plotCanvas.width() + 15,
+                                      self.dataPanel.y() + self.dataPanel.height() + 15)
         self.referenceCurvePanel.setTitle("Refrence Curve")
         self.referenceCurvePanel.setDisabled(True)
         self.referenceUI()
@@ -177,6 +183,7 @@ class MainApplicationWindow(QMainWindow):
         self.exportDataBtn.adjustSize()
         self.exportDataBtn.setFixedWidth(self.exportDataBtn.width() - 15)
         self.exportDataBtn.move(parent.width() - 12 - self.exportDataBtn.width(), int(parent.height() / 2 - 3))
+        self.exportDataBtn.clicked.connect(self.save2CSV)
 
     def referenceUI(self):
 
@@ -284,19 +291,36 @@ class MainApplicationWindow(QMainWindow):
     def drawFitCurve(self):
         data = np.transpose(self.collectedData)
         plt = self.plotCanvas.plt
-        if data.any() and self.fitCurveOn == False:
-            self.fitParams, _ = curve_fit(cos2Fnc, data[0], data[1], p0=[1, 1, 0, 0])
-            print(self.fitParams.size)
-            x = np.arange(0, 180, 0.1)
-            plt.plot(x, cos2Fnc(x, *self.fitParams),
-                     label="{0:.2f} ∙ Cos²( {1:.2f}$\tX$ + {2:.2f} ) + {3:.2f}".format(*self.fitParams))
-            plt.legend()
-            plt.draw()
-            self.fitCurveOn = True
-            self.referenceCurvePanel.setDisabled(False)
+        if data.any() and self.fitCurveOn == False and len(data[0]) >= 5:
+            try:
+                self.fitParams, _ = curve_fit(cos2Fnc, data[0], data[1], p0=[1, 1, 0, 0])
+                print(self.fitParams.size)
+                x = np.arange(0, 180, 0.1)
+                plt.plot(x, cos2Fnc(x, *self.fitParams),
+                         label="{0:.2f} ∙ Cos²( {1:.2f}$\tX$ + {2:.2f} ) + {3:.2f}".format(*self.fitParams))
+                plt.legend()
+                plt.draw()
+                self.fitCurveOn = True
+                self.referenceCurvePanel.setDisabled(False)
+            except RuntimeError:
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Warning)
+                msg.setText("Could not fit curve to data")
+                msg.setInformativeText("Optimal parameters not found for the provided data")
+                msg.setWindowTitle("Optimal parameters not found")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.exec_()
+        elif data.any() and self.fitCurveOn == False and len(data[0]) <= 5:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Warning)
+            msg.setText("Could not fit curve to data")
+            msg.setInformativeText("You needs more than 5 data points to perform a best fit")
+            msg.setWindowTitle("Not Enough Data Points")
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec_()
 
     def drawRefCurve(self):
-        if type(self.fitParams) == np.ndarray and self.refCurveOn == False:
+        if self.fitParams[0] != 0 and self.refCurveOn == False:
             plt = self.plotCanvas.plt
             x = np.arange(0, 180, 0.1)
             if self.selectCurve.currentData() == 'cos':
@@ -338,8 +362,30 @@ class MainApplicationWindow(QMainWindow):
             plt.draw()
             self.refCurveOn = True
 
-    def print_output(self, p):
-        print(p)
+    def save2CSV(self):
+        data2write = np.transpose(self.collectedData)
+        path = self.SFDialog()
+        headers = "Degree of Rotation, Intensity"
+        if path is not None:
+            try:
+                np.savetxt(str(path), np.transpose(data2write), delimiter=',', fmt='%.3g', header=headers)
+            except:
+                try:
+                    # this is for the case where the data may not be in float format?
+                    np.savetxt(str(path), data2write, delimiter=',', header=headers)
+                except:
+                    print('Error saving figure data')
+                    errorMsg = "There was an Error"
+                    print(errorMsg)
+
+    def SFDialog(self):
+        fileName = QFileDialog.getSaveFileName(self, "Select File to Save", "intensity_data.csv", "csv Files (*.csv)")
+        print(type(fileName))
+        if type(fileName) == tuple:
+            print(fileName)
+            return fileName[0]
+        else:
+            return None
 
     def normalizeData(self):
         data = np.transpose(self.collectedData)
@@ -359,8 +405,8 @@ class MainApplicationWindow(QMainWindow):
         print('Starting Worker')
 
         worker = Worker(self.arduinoRunner, deg)  # Any other args, kwargs are passed to the run function
-        worker.signals.result.connect(self.print_output)
-        worker.signals.error.connect(self.print_output)
+        worker.signals.result.connect(print_output)
+        worker.signals.error.connect(print_output)
         worker.signals.finished.connect(lambda: self.disableMotorControls(False))
         worker.signals.finished.connect(self.normalizeData)
         worker.signals.finished.connect(lambda: self.dataPanel.setDisabled(False))

@@ -1,21 +1,17 @@
-import sys
 
-import serial
+import sys
 import time
 
+import serial
+from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtCore import pyqtSlot
+from PyQt5.QtWidgets import QApplication, QMainWindow
 
-from comPortSetup import getComportsList
-from MainApplicationUI import MainApplicationWindow
 from ArduinoCodeCopyBtn import CopyCodeBtn
+from MainApplicationUI import MainApplicationWindow
+from comPortSetup import getComportsList
 
-from PyQt5 import QtWidgets, QtGui, Qt
-from PyQt5.QtWidgets import QApplication, QMainWindow, QTabWidget, QLabel
-
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigCanvas
-import matplotlib.pyplot as plt
-import numpy as np
-
+import qtawesome as qta
 
 class ConnectWindow(QMainWindow):
 
@@ -51,14 +47,21 @@ class ConnectWindow(QMainWindow):
                             i["device"])
         self.cb.adjustSize()
         self.cb.setMinimumWidth(self.cb.width() + 15)
-        self.cb.move(int((self.w / 2) - (self.cb.width() / 2)), int((self.h / 2) - (self.cb.height() / 2)))
+        self.cb.move(int((self.w / 2) - (self.cb.width() / 2))-20, int((self.h / 2) - (self.cb.height() / 2)))
 
         self.selectLabel = QtWidgets.QLabel(self)
         self.selectLabel.setText("Select Arduino Com Port")
         self.selectLabel.setFont(QtGui.QFont('Helvetica', 20))
-        self.selectLabel.move(int((self.w / 2) - (self.cb.width() / 2)) + 7,
+        self.selectLabel.move(int((self.w / 2) - (self.cb.width() / 2)) -13,
                               int((self.h / 2) - (self.cb.height() * 1.25)))
         self.selectLabel.adjustSize()
+
+        self.refreshBtn = QtWidgets.QPushButton(self)
+        self.refreshBtn.setIcon(qta.icon('mdi.refresh'))
+        self.refreshBtn.adjustSize()
+        self.refreshBtn.setFixedWidth(40)
+        self.refreshBtn.move(self.cb.x()+5+self.cb.width(), int(self.cb.y()))
+        self.refreshBtn.clicked.connect(self.refreshComList)
 
         self.connectBtn = QtWidgets.QPushButton(self)
         self.connectBtn.setText("Connect")
@@ -103,6 +106,19 @@ class ConnectWindow(QMainWindow):
             self.arduinoName = self.comPortList[self.cb.currentIndex()]['device']
             self.initMainApp(self.arduinoName, self.ser)
 
+    def refreshComList(self):
+        self.comPortList.clear()
+        self.comPortList = getComportsList()
+        self.cb.clear()
+        h = self.cb.height()
+        for i in self.comPortList:
+            self.cb.addItem("Name : " + str(i["name"]) + " (Manufacturer : " + str(i["manufacturer"]) + ")",
+                            i["device"])
+        self.cb.adjustSize()
+        self.cb.setMinimumHeight(h)
+        self.cb.move(int((self.w / 2) - (self.cb.width() / 2))-20, int((self.h / 2) - (self.cb.height() / 2)))
+        self.refreshBtn.move(self.cb.x() + 5 + self.cb.width(), int(self.cb.y()))
+
     @pyqtSlot()
     def initMainApp(self, value, ser):
         self.mainWindow = MainApplicationWindow(value, ser)
@@ -114,9 +130,6 @@ def window():
     app = QApplication(sys.argv)
     win = ConnectWindow()
     app.setStyle("fusion")
-
-    # For Testing
-    # win = MainApplicationWindow("")
 
     win.show()
     sys.exit(app.exec_())

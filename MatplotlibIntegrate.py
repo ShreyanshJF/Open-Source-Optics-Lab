@@ -18,11 +18,11 @@ class CanvasNav(CanvasNavDefault):
 class Canvas(FigCanvas):
 
     def __init__(self, parent):
-        fig = plt.figure(figsize=(4.8, 3.5))
+        fig = plt.figure(figsize=(4.8, 3.5), frameon=True)
         super(Canvas, self).__init__(fig)
 
         self.plt = plt
-        fig.patch.set_facecolor("None")
+        fig.patch.set_facecolor((236/255,236/255,236/255,0))
         self.plt.style.use('bmh')
         self.plt.xlim(0, 90)
         self.plt.ylim(0, 1)

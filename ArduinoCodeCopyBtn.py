@@ -1,9 +1,7 @@
-import time
-
 from PyQt5 import QtCore, QtGui
-from PyQt5.QtCore import QSize, QTimer
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QPushButton, QApplication
+from PyQt5.QtCore import QSize
+import qtawesome as qta
+from PyQt5.QtWidgets import QPushButton, QStyle
 
 
 class CopyCodeBtn(QPushButton):
@@ -13,7 +11,7 @@ class CopyCodeBtn(QPushButton):
 
         self.setParent(parent)
         self.setText(' Arduino Code')
-        self.setIcon(QIcon('arduinoIcon.png'))
+        self.setIcon(qta.icon('mdi.code-braces-box'))
         self.setIconSize(QSize(30, 30))
         self.adjustSize()
         self.move(parent.width() - 15 - self.width(), parent.height() - 10 - self.height())
