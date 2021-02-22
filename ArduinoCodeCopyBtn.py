@@ -23,7 +23,7 @@ class CopyCodeBtn(QPushButton):
 
     def openUrl(self):
         parent = self.parent()
-        url = QtCore.QUrl('https://pastebin.com/kF6z0Ptc')
+        url = QtCore.QUrl('https://github.com/ShreyanshJF/Open-Source-Optics-Lab/blob/main/controlling_motor_with_python.ino')
         if not QtGui.QDesktopServices.openUrl(url):
             self.setText('Open Url Could not open url')
             self.adjustSize()
