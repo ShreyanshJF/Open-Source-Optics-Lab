@@ -317,7 +317,7 @@ class MainApplicationWindow(QMainWindow):
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Warning)
             msg.setText("Could not fit curve to data")
-            msg.setInformativeText("You needs more than 5 data points to perform a best fit")
+            msg.setInformativeText("You need more than 5 data points to perform a best fit")
             msg.setWindowTitle("Not Enough Data Points")
             msg.setStandardButtons(QMessageBox.Ok)
             msg.exec_()
