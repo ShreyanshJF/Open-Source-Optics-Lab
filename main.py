@@ -22,6 +22,8 @@ class ConnectWindow(QMainWindow):
         self.w = 700
         self.h = 400
 
+        self.setFont(QtGui.QFont('Arial'))
+
         self.comPortList = getComportsList()
         self.arduinoIsConnected = False
 
@@ -47,11 +49,12 @@ class ConnectWindow(QMainWindow):
                             i["device"])
         self.cb.adjustSize()
         self.cb.setMinimumWidth(self.cb.width() + 15)
+        self.cb.setFixedHeight(35)
         self.cb.move(int((self.w / 2) - (self.cb.width() / 2))-20, int((self.h / 2) - (self.cb.height() / 2)))
 
         self.selectLabel = QtWidgets.QLabel(self)
         self.selectLabel.setText("Select Arduino Com Port")
-        self.selectLabel.setFont(QtGui.QFont('Helvetica', 20))
+        self.selectLabel.setFont(QtGui.QFont('Arial', 20))
         self.selectLabel.adjustSize()
         self.selectLabel.move(self.cb.x() + 10, self.cb.y() - self.selectLabel.height() - 4)
 
@@ -59,12 +62,13 @@ class ConnectWindow(QMainWindow):
         self.refreshBtn.setIcon(qta.icon('mdi.refresh'))
         self.refreshBtn.adjustSize()
         self.refreshBtn.setFixedWidth(40)
+        self.refreshBtn.setFixedHeight(35)
         self.refreshBtn.move(self.cb.x()+5+self.cb.width(), int(self.cb.y()))
         self.refreshBtn.clicked.connect(self.refreshComList)
 
         self.connectBtn = QtWidgets.QPushButton(self)
         self.connectBtn.setText("Connect")
-        self.connectBtn.setFont(QtGui.QFont('Helvetica', 14))
+        self.connectBtn.setFont(QtGui.QFont('Arial', 14))
         self.connectBtn.setMinimumHeight(self.connectBtn.height() + 2)
         self.connectBtn.move(int((self.w / 2) - (self.connectBtn.width() / 2)),
                              int((self.h / 2) + (self.cb.height() * .5)) + 10)

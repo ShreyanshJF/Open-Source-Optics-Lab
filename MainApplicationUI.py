@@ -4,6 +4,7 @@ import time
 import numpy as np
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import *
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 from scipy.optimize import curve_fit
 
@@ -77,6 +78,8 @@ class MainApplicationWindow(QMainWindow):
         self.initUI()
 
     def initUI(self):
+
+        self.setFont(QFont('Arial'))
 
         self.plotCanvas = Canvas(self)
         self.plotCanvas.setStyleSheet("background-color:transparent;")
