@@ -52,8 +52,7 @@ class ConnectWindow(QMainWindow):
         self.selectLabel = QtWidgets.QLabel(self)
         self.selectLabel.setText("Select Arduino Com Port")
         self.selectLabel.setFont(QtGui.QFont('Helvetica', 20))
-        self.selectLabel.move(int((self.w / 2) - (self.cb.width() / 2)) -13,
-                              int((self.h / 2) - (self.cb.height() * 1.25)))
+        self.selectLabel.move(self.cb.x() + 10, self.cb.y() - self.selectLabel.height())
         self.selectLabel.adjustSize()
 
         self.refreshBtn = QtWidgets.QPushButton(self)
