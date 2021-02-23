@@ -282,9 +282,9 @@ class MainApplicationWindow(QMainWindow):
         self.fitCurveOn = False
         self.refCurveOn = False
         if data.any():
-            plt.scatter(data[0], data[1] / np.amax(data[1]), color='C2', label="Collected Data")
+            plt.scatter(data[0], (data[1] - np.amin(data[1])) / (np.amax(data[1]- np.amin(data[1]))), color='C2', label="Collected Data")
             plt.xlim(0, self.currentDegMove + 1 + int(self.currentDegMove * .1), min)
-            plt.ylim(0, 1.1, min)
+            plt.ylim(-0.1, 1.1, min)
             plt.xlabel("Degrees of Rotation")
             plt.ylabel("Intensity")
             plt.legend()
@@ -347,7 +347,7 @@ class MainApplicationWindow(QMainWindow):
 
             plt.scatter(data[0], data[1] / np.amax(data[1]), color='C2', label="Collected Data")
             plt.xlim(0, self.currentDegMove + 1 + int(self.currentDegMove * .1), min)
-            plt.ylim(0, 1.1, min)
+            plt.ylim(-0.1, 1.1, min)
             plt.xlabel("Degrees of Rotation")
             plt.ylabel("Intensity")
 
@@ -392,7 +392,7 @@ class MainApplicationWindow(QMainWindow):
 
     def normalizeData(self):
         data = np.transpose(self.collectedData)
-        data[1] = data[1] / np.amax(data[1])
+        data[1] = (data[1] - np.amin(data[1])) / (np.amax(data[1] - np.amin(data[1])) + 0.000001)
         self.collectedData = np.transpose(data).tolist()
 
     def startMotorRotation(self, deg):
