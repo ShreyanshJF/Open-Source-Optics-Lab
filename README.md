@@ -1,5 +1,6 @@
 # Open Source Optics Lab
  University of Glasgow - Physics 3 - Open Source Optics Lab
+ [Link to Paper on software](https://drive.google.com/file/d/1mcNX3Dg572xdGZHvkNEerx9fwbMghNoQ/view?usp=sharing)
 ## How to run the app
 
 Required Software
